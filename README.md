@@ -8,8 +8,8 @@ This repository contains the code and resources for the Maverik Sales Prediction
 ## Table of Contents
 
 - [Introduction](#introduction)
-- [Business Problem](#businessproblem)
-- [Team Contribution](#teamcontribution)
+- [Business_Problem](#business_problem)
+- [Team_Contribution](#team_contribution)
 - [Contributing](#contributing)
 - [Solution](#solution)
 - [Recommendation](#recommendation)
@@ -19,12 +19,12 @@ This repository contains the code and resources for the Maverik Sales Prediction
 ## Introduction
 With the recent acquisition of 'Kum & Go', Maverik, a quickly growing retail convenience store network, doubled its number of stores and now operates over 400 sites throughout the western United States. Maverik plans to build about 30 new stores a year as part of its aggressive growth strategy, thus these openings are an important component of their business planning. The difficulty they confront is forecasting sales for these new stores with enough accuracy for their first year of business, which is essential for careful financial planning and the preparation of first-rate return on investment documentation. Maverik is working to create a highly efficient data-driven solution that can offer accurate and trustworthy sales projections for these new store openings in order to overcome this difficulty. 
 
-## Business Problem
+## Business_Problem
 
 To run this project we would require any platform that supports a .ipynb notebook i.e. Python Programming. 
 The libraries that are used in this include pandas, numpy, matplotlib, matplotlib.pyplot, sklearn.metrics, seaborn, os, prettytable, warnings, sklearn, xgboost, lightgbm. 
 
-## Team Contribution
+## Team_Contribution
 The above-mentioned libraries can be installed using 'pip install library_name'. 
 
 ## Contributing
