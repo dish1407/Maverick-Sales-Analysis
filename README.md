@@ -1,6 +1,5 @@
-# Maverick-Sales-Analysis
-# Home-Credit-Default-Risk Analysis
-This contains the Python notebooks for home credit default risk analysis.
+# Maverik-Sales-Analysis
+This contains the R-Files for the analysis of Sales Prediction for Maverik
 
 ## Overview
 
