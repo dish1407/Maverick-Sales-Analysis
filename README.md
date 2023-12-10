@@ -3,13 +3,13 @@ This contains the R-Files for the analysis of Sales Prediction for Maverik
 
 ## Overview
 
-This repository contains the code and resources for the Home Credit project. The project aims to reduce the risk of default on the loans that they offer to people. This aim leads to develop a model that can predict the likelihood of a borrower defaulting on their loan. Home Credit also has the aim of broadening financial inclusion with this plan. 
+This repository contains the code and resources for the Maverik Sales Prediction Project. The project aims to develope a predictive model for Maverik to get an idea of sales for the new stores they want to open based on historical data. They need correct predictions for a new store's sales in its first year for the company’s financial planning and return on investment (ROI) calculations. 
 
 ## Table of Contents
 
 - [Introduction](#introduction)
-- [Dependencies](#dependencies)
-- [Installation](#installation)
+- [Business Problem](#businessproblem)
+- [Team Contribution](#teamcontribution)
 - [Contributing](#contributing)
 - [Solution](#solution)
 - [Recommendation](#recommendation)
@@ -17,19 +17,14 @@ This repository contains the code and resources for the Home Credit project. The
 - [Learnings](#learnings)
 
 ## Introduction
+With the recent acquisition of 'Kum & Go', Maverik, a quickly growing retail convenience store network, doubled its number of stores and now operates over 400 sites throughout the western United States. Maverik plans to build about 30 new stores a year as part of its aggressive growth strategy, thus these openings are an important component of their business planning. The difficulty they confront is forecasting sales for these new stores with enough accuracy for their first year of business, which is essential for careful financial planning and the preparation of first-rate return on investment documentation. Maverik is working to create a highly efficient data-driven solution that can offer accurate and trustworthy sales projections for these new store openings in order to overcome this difficulty. 
 
-Home Credit is a Global Consumer Finance organization that offers loans to the underserved population with low to negligible credit history. We recognized that this underserved population often falls victim to untrustworthy lenders. Home Credit is committed to providing a positive and safe borrowing experience. To achieve this goal, they currently leverage alternative data sources, such as telco and transactional information, to assess the repayment abilities of their clients. However, they believe that there is untapped potential in their data.
-
-To unlock their full potential, we will aim to optimize the data analysis techniques and algorithms by leveraging available data to identify clients capable of repayment. This will prevent unnecessary rejections, increase the rate of correct rejection, and provide loans to suitable parties. This project will support current prediction methods and provide a precise prediction model, based on additional analytics by employing various statistical and machine-learning techniques to make accurate predictions.
-
-Getting a system that uses data analysis to help us identify the population that Home Credit is trying to target, will result in better approval rates and good financial performance. It will also help in scaling up the position of Home Credit in the market and get us to reliable customers. 
-
-## Dependencies
+## Business Problem
 
 To run this project we would require any platform that supports a .ipynb notebook i.e. Python Programming. 
 The libraries that are used in this include pandas, numpy, matplotlib, matplotlib.pyplot, sklearn.metrics, seaborn, os, prettytable, warnings, sklearn, xgboost, lightgbm. 
 
-## Installation
+## Team Contribution
 The above-mentioned libraries can be installed using 'pip install library_name'. 
 
 ## Contributing
