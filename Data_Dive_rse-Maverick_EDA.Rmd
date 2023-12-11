@@ -1,0 +1,920 @@
+---
+title: "Time Series Exploratory Data Analysis on Maverik Data Sets using R"
+subtitle: "MSBA Capstone Completion 2023"
+author: "Data Dive_rse - Kalyani Joshi, Che Diaz Fadel, Disha Tapadiya and Debayan Dutta"
+date: "October-08-2023"
+output: 
+  html_document:
+    number_sections: yes
+    toc: yes
+    fig_width: 15
+    fig_height: 10
+    highlight: tango
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Set options ----
+options(tibble.print_max = 40,
+        tibble.print_min = 24,
+        width = 222,
+        pillar.min_title_chars = 15)
+
+# Custom functions/values ----
+psc <- function(x){
+  x %>%
+    print(n=56)
+}
+
+pall <- function(x){
+  x %>%
+    print(n=nrow(.))
+}
+
+soutlier <- function(x, lower = FALSE){
+  if (lower){
+    -(IQR(x, na.rm = TRUE) * 1.5) + quantile(x, names = FALSE, na.rm = TRUE)[2]
+  } else {
+    (IQR(x, na.rm = TRUE) * 1.5) + quantile(x, names = FALSE, na.rm = TRUE)[4]
+  }
+}
+```
+
+# Introduction  
+Project Goal: Maverik is interested in producing more accurate financial plans and initial ROI documents for future convenience store locations.The goal of this project is to develop a predictive model that is precise enough for forecasting the first-year sales of new stores that Maverik plans to open.This predictive model will be an ensemble of forecasting and supervised regression models designed to provide daily store level sales forecasts of multiple key product categories and aid Maverik in financial planning, resource allocation, and ROI calculations for its expansion strategy. The Success of this project will be benchmarked against Maverik’s existing Naive forecasting solution. The ability to accurately forecast store sales will enable Maverik to optimize the expenditure of scarce resources by pursuing the most profitable locations and minimizing misallocation of said resources when opening a new store. This will lead to better investment, decreased waste, and more reliable financial evaluations.
+
+Business Problems: Maverik aims to open 30 new stores annually and requires an accurate predictive model for the first-year sales to support financial planning and ROI calculations.
+
+Benefits of the Solution: Precise forecasts will enable them to make informed decisions on store locations and resource allocation along with achieving set sales targets while checking the progress.
+
+Success Matrix: The solution provided will be considered a success if it generates forecasts accurate to within 10% of actual sales, can update forecasts based on new data along with being user-friendly and easy to support.
+
+Analytical Approach: We will utilize machine learning techniques to create a forecasting model, starting with data analysis and then training various models using historical sales data.
+
+Project Scope: The project’s scope includes the development of an R-based model capable of providing daily-level sales forecasts, including annual forecasts, while considering seasonality. The model should also have the ability to update forecasts as new data becomes available. The timeline for this project is approximately 16 weeks, with key milestones achieved throughout the process.
+
+EDA Notebook Purpose: The purpose of the Exploratory Data Analysis (EDA) notebook is to gain a deep understanding of the data provided for the sales forecasting project. It will serve as the initial step in the data analysis process, helping us identify patterns, trends, and potential challenges in the data. The EDA will also assist in formulating the right questions to guide the modeling process.
+
+Questions for Data Exploration:
+What is the structure and format of the given datasets? What preprocessing/cleaning is required?
+Are there any missing values, outliers, or data quality issues that need to be addressed?
+What are the key features and variables that may influence sales forecasts?
+How do date attributes need to be standardized or formatted to ensure accurate seasonality calculations?
+How does seasonality impact sales, and can we identify any recurring patterns?
+Are there any significant trends or factors that affect store sales?
+Can we identify any potential external variables (e.g., economic indicators) that might impact sales?
+What is the distribution of sales across different stores and regions? What affect does seasonality have on the target variables?
+How does store-specific data (e.g., store size, location) correlate with sales performance?
+Which features are most correlated with each of the target sales metrics?
+The EDA notebook will help lay the foundation for subsequent data preprocessing, feature engineering, and model development phases by providing insights into the dataset’s characteristics and potential challenges.
+
+# Load Libraries
+```{r libraries}
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(gridExtra)
+library(lemon)
+library(skimr)
+library(lubridate)
+library(magrittr)
+library(zoo)
+library(readxl)
+library(scales)
+library(GGally)
+library(ggrepel)
+library(ggforce)
+library(caret)
+library(ggTimeSeries)
+library(ggpointdensity)
+library(fpp3)
+library(patchwork)
+library(plotly)
+library(tsibble)
+library(heatmaply)
+library(corrplot)
+```
+
+# Reading data files
+```{r}
+#Read qualitative_data_msba.csv file
+q_data <- read.csv("qualitative_data_msba.csv")
+
+# Read time_series_data_msba.csv file
+tseries <- read.csv("time_series_data_msba.csv")
+
+```
+
+# Exploration of qualitative Data
+```{r}
+#View structure and summary of q_data data
+str(q_data)
+```
+
+There are 37 rows and 55 features qualitative data.
+Most variables are of "chr" data type, converting those to factor would give better understanding of the data.
+Here "Hi.Flow.Lanes.Fueling.Positions" is redundant, 1 of them should be removed.
+"RV.Lanes.Stack.Type" and "Hi.Flow.RV.Lanes.Stack.Type" seems to have same value for each site_id_msba.
+
+## Value check in 2 columns
+```{r}
+# Check if values in "RV.Lanes.Stack.Type" and "Hi.Flow.RV.Lanes.Stack.Type" are exactly the same for each row
+data_check <- ifelse(q_data$RV.Lanes.Stack.Type == q_data$Hi.Flow.RV.Lanes.Stack.Type, "Same", "Different") 
+  
+print(data_check)
+
+#symdiff(ts_data$site_id_msba, q_data$site_id_msba)
+```
+Values in each row for both columns are same so 1 of them should be removed.
+
+## Remove variables in q_data
+```{r}
+# Remove variable X, Hi.Flow.Lanes.Fueling.Positions,Hi.Flow.RV.Lanes.Stack.Type
+q_data <- q_data[c(-1, -42)] #q_data <- q_data[c(-1, -42, -48)] --KJ
+head(q_data)
+str(q_data)
+
+```
+
+## Changing Variable names in q_data
+```{r}
+# New column names with dots replaced by underscores and shortened names
+new_names_q <- c("Open_Year", "Square_Feet", "FDoor_Count", "Years_Since_Last_Project", "Parking_Spaces", "Lottery", "Freal", "Bonfire_Grill", "Pizza", "Cinnabon", "Godfathers_Pizza", "Ethanol_Free", "Diesel", "Hi_Flow_Lanes", "RV_Lanes", "Hi_Flow_RV_Lanes", "DEF", "CAT_Scales", "Car_Wash", "EV_Charging", "RV_Dumps", "Propane", "X1_Mile_Pop", "X1_Mile_Emp", "X1_Mile_Income", "X1_2_Mile_Pop", "X1_2_Mile_Emp", "X1_2_Mile_Income", "X5_Min_Pop", "X5_Min_Emp", "X5_Min_Inc", "X7_Min_Pop", "X7_Min_Emp", "X7_Min_Inc", "Traditional_Fueling_Positions", "Traditional_Forecourt_Layout", "Traditional_Forecourt_Stack", "RV_Fueling_Positions", "RV_Forecourt_Layout", "RV_Forecourt_Stack", "Hi_Flow_Fueling_Positions", "Hi_Flow_Forecourt_Layout", "Hi_Flow_Forecourt_Stack", "Hi_Flow_Lanes_Fueling_Positions", "RV_Lanes_Fueling_Positions", "Hi_Flow_RV_Forecourt_Layout", "Hi_Flow_RV_Forecourt_Stack", "Non_24_Hour", "Self_Check_Out", "Men_Urinal_Count", "Women_Toilet_Count", "Women_Sink_Count", "Site_id")
+
+# Assign the new column names to the data frame
+colnames(q_data) <- new_names_q
+
+# View the updated data 
+str(q_data)
+
+
+```
+
+## Check missings in q_data
+```{r}
+
+# Calculate the number of missing values in each column
+na_count <- sapply(q_data, function(x) sum(x == "N/A"))
+
+# Sort the number of missing values in descending order
+na_count_sorted <- sort(na_count, decreasing = TRUE)
+
+data.frame(na_count_sorted)
+
+```
+Here 6 columns (Hi.Flow.Lanes.Layout, Hi.Flow.Lanes.Stack.Type, RV.Lanes.Layout, RV.Lanes.Stack.Type, Hi.Flow.RV.Lanes.layout,	Hi.Flow.RV.Lanes.Stack.Type) in the data have missing values(N/A). These N/A's can be replaced by "unavailable" or "unknown" as they are categorical variables and the N/A here mean not available(meaning that specific service is not available for that store).
+
+## Replace N/A, null and blanks with single value None
+
+```{r}
+
+q_data <- q_data %>%
+  mutate(
+    across(
+      where(~any(grepl("^N/?A$", ., ignore.case = TRUE))),
+      ~replace(., grepl("^N/?A$", ., ignore.case = TRUE), "None")
+    )
+  )
+
+# Confirm same proportions as before
+q_data %>% 
+  # select columns containing missing values
+  select(where(~any(. == "None"))) %>%
+  # for each column, calculate proportion of missing values
+  summarise(
+    across(
+      everything(),
+    ~sum(. == "None") / n()
+    )
+  ) %>%
+  #convert to long-form
+  pivot_longer(everything(),
+               names_to = "col",
+               values_to = "prop_na")
+
+```
+
+## Checking value variance/variety of values in the variables present in the q_data columns 
+
+```{r}
+
+q_data %>%
+  summarise(
+    across(
+      everything(),
+      list(
+        # for each column, calculate number of distinct values
+        ndistinct = ~n_distinct(., na.rm = TRUE),
+        # for each column, calculate variance
+        var = ~var(., na.rm = TRUE) %>% round(4),
+        # for each column, concatenate up to three unique values
+        samp = ~paste0(na.omit(unique(.)[1:3]), collapse = ", ")
+      )
+    )
+  ) %>%
+  #convert to long form
+  pivot_longer(everything(),
+               names_to = c("col", ".value"),
+               names_pattern = "(.*)_(.*)") %>%
+  arrange(ndistinct)
+
+```
+
+It appears some of the fuel lane data is contradictory and/or redundant. Site 22015 has no high-flow RV lanes as indicated by hi_flow_rv_lanes but somehow their high-flow RV lane layout is “In-Line”. While a single observation can easily be handled, this instance further brings into question the pervasiveness of such errors, detectable or otherwise.
+
+```{r}
+# Show seemingly contradictory combination
+q_data %>%
+  filter(Hi_Flow_RV_Lanes == "No",
+         RV_Forecourt_Layout == "In-Line") %>%
+  select(Site_id, Hi_Flow_RV_Lanes, RV_Forecourt_Layout)
+```
+
+## Convert all variables of type "chr" to factor in q_data
+```{r}
+
+# find variables of type "chr" the dataset
+char_vars <- sapply(q_data, is.character)
+
+# Convert character variables to factors
+q_data[char_vars] <- lapply(q_data[char_vars], as.factor)
+
+str(q_data)
+
+```
+
+## Count of stores by year
+```{r}
+# Create a bar plot of store openings by year
+ggplot(data = q_data, aes(x = factor(Open_Year))) +
+  geom_bar(fill="steelblue") +
+   geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5, size = 4) +  # Add count labels
+  labs(x = "Year", y = "Count of Store Openings", title = "Store Openings Over the Years")
+
+```
+Here we can see that "25" stores were opened in year 2021 and "12" stores were opened in year 2022. More stores were opened in year 2021 as compared to 2022.
+
+# Exploration of time series data
+
+## View structure of tseries data
+```{r}
+# View structure and summary of tseries data
+str(tseries)
+summary(tseries)
+```
+There are 13908 rows and 12 features in time series data(time_series_data_msba.csv) provided by Maverick.We would remove column X from the data set as it is just a row number.capital_projects.soft_opening_date and calendar.calendar_day_date are the date columns which has datatype as "chr", this has to be converted to date. 
+
+## Remove column X from data 
+```{r}
+tseries <- tseries[-1]
+head(tseries)
+
+```
+
+## Change column names for tseries data
+```{r}
+#For time series data
+new_names <- c("open_date", "date", "week_id", "day_of_week","holiday","day_type","inside_sales","food_service_sales","diesel_sales","unleaded_sales","Site_id")
+
+colnames(tseries) <- new_names
+
+# View the updated data 
+str(tseries)
+
+```
+## Convert date columns from chr to date
+```{r}
+# Convert date columns to Date format
+tseries$open_date <- as.Date(tseries$open_date)
+tseries$date <- as.Date(tseries$date)
+
+str(tseries)
+summary(tseries)
+```
+
+## Distribution of stores across Dates
+
+```{r}
+# Bar plot
+{
+  tseries %>%
+  # count of stores for each date
+  count(date) %>%
+  ggplot() +
+  geom_col(aes(date, n),
+           fill = "darkred", alpha = 0.7, width = 1) +
+  # Fix date axis labels
+  scale_x_date(breaks = seq(as_date("2021-01-01"), as_date("2023-09-01"), "3 months"),
+               labels = ~ifelse(month(.) == 1, format(., "%Y"), format(., "%b"))) +
+  scale_y_continuous(breaks = seq(0, 30, 5)) +
+  theme_minimal(10) +
+  labs(title = "Count of stores vs date")
+} / # vertically combining plots with `patchwork` package
+  # Line plot
+  {
+    tseries %>%
+      arrange(open_date, Site_id, date) %>% 
+      # rescale site_id for plot
+      mutate(Site_id = consecutive_id(Site_id)) %>%
+      ggplot() +
+      geom_line(aes(date, Site_id, group = Site_id),
+                color = "steelblue", linewidth = 2, show.legend = FALSE) +
+      # Fix date axis labels
+      scale_x_date(breaks = seq(as_date("2021-01-01"), as_date("2023-09-01"), "3 months"),
+                   labels = ~ifelse(month(.) == 1, format(., "%Y"), format(., "%b"))) +
+      scale_y_continuous(breaks = seq(0, 38, 4),
+                         minor_breaks = NULL) +
+      theme_minimal() +
+      labs(title = "Store-wise date range",
+           y = "Cumulative store count")
+  }
+
+```
+The entire data set spans from 2021-01-12 to 2023-08-16 and all 38 stores are present for one year and one day. Is the extra day of any analytical significance or simply an artifact of the fiscal calendar? Given that every store exists for the same length of time, it will be helpful to know the distribution of stores across dates.
+
+## Inspecting the tseries dataset using date and week_id
+
+```{r}
+tseries %>%
+  arrange(Site_id, date) %>%
+  distinct(date, .keep_all = TRUE) %>%
+  # since week_id resets each year, values are not unique to distinct weeks
+  group_by(unique_week_id = consecutive_id(week_id)) %>%
+  # remove incomplete weeks
+  mutate(unique_week_len = n()) %>%
+  filter(unique_week_len == 7) %>%
+  # subset first day of fiscal week
+  summarise_all(first) %>%
+  # determine variety 
+  count(day_of_week)
+
+# We know each (complete) week begins on Friday, we can begin constructing a standardized day_id.
+
+# Begin with completed date range found in data
+day_id_df <- tibble(date = seq(as_date("2021-01-01"), as_date("2023-12-31"), "1 day")) %>%
+  # Calculate week_id
+  mutate(week_id = yearweek(date, week_start = 5) %>% format("%V") %>% as.numeric(),
+         # since the first day of fiscal year 2022 is actually in 2021, special logic must be 
+         # applied to identify the beginning of the year
+         x = case_when(lag(week_id, default = 52) == 52 & week_id == 1 ~ 1),
+         year = 2020 + rollapplyr(x, width = n(), FUN = sum, na.rm = TRUE, partial = TRUE)) %>%
+  group_by(year) %>%
+  mutate(day_id = row_number()) %>%
+  select(-x) %>%
+  ungroup()
+
+print(day_id_df)
+```
+
+# Target Variables
+
+## Percentage of sales by sales metric
+
+```{r}
+tseries %>%
+  # Aggregate sales
+  summarise(across(inside_sales:unleaded_sales, sum)) %>%
+  # Convert to long-form
+  pivot_longer(everything(),
+               names_to = "metric",
+               values_to = "sales") %>%
+  # get percentage of sales by sales metric
+  mutate(p = percent(sales/sum(sales), 0.1))
+```
+## Proportion of total store sales by sales metrics
+```{r}
+tseries %>%
+  # aggregate sales by site
+  group_by(Site_id) %>%
+  summarise(across(inside_sales:unleaded_sales, sum)) %>%
+  # convert to long-form
+  pivot_longer(inside_sales:unleaded_sales,
+               names_to = "metric",
+               values_to = "sales") %>%
+  # get percentage of sales by sales metric
+  group_by(Site_id) %>%
+  mutate(p = sales/sum(sales),
+         # create separate variable to be used in `arrange`
+         d = p[metric == "diesel_sales"]) %>%
+  arrange(-d) %>%
+  ungroup() %>%
+  # ensure stores are arranged by % diesel in plot
+  mutate(site_index = consecutive_id(Site_id),
+         metric = fct_reorder(metric, p)) %>%
+  ggplot(aes(site_index, p)) +
+  geom_col(aes(fill = metric)) +
+  geom_text(aes(label = percent(p, 1), group = metric),
+            # place label in center of `group`
+            position = position_stack(vjust = 0.5)) +
+  theme_minimal(10) +
+  theme(legend.position = "top",
+        legend.title = element_blank()) +
+  labs(title = "Proportion of total store sales by sales metric",
+       x = "site index (descending diesel contribution)",
+       y = NULL)
+
+```
+
+## Correlation between al 4 sales metrics
+
+```{r}
+cor(tseries[, c("inside_sales", "food_service_sales", "diesel_sales", "unleaded_sales")])
+```
+
+For instance, in the above output a correlation of approximately 0.88 between "inside_sales" and "food_service_sales" suggests a strong positive relationship, where increases in one tend to correspond with increases in the other. The correlation matrix aids in understanding how variables co-vary and can inform decision-making and modeling in various fields such as finance, economics, and data analysis.
+
+## Relationship between timeseries data (target varaibles) and qualitative data (features)
+
+```{r}
+# Numerical features
+corr_df <- tseries %>%
+  group_by(Site_id) %>%
+  summarise(across(inside_sales:unleaded_sales, sum)) %>%
+  left_join(q_data, "Site_id") %>%
+  select(where(is.numeric), -c(Site_id, Open_Year, Years_Since_Last_Project))
+
+
+colSums(is.na(corr_df))
+
+corr_df <- replace(corr_df, is.na(corr_df), 0)
+
+corr_df %>%
+  cor() %>%
+  ggcorrplot::ggcorrplot(
+    method = "circle",
+    p.mat = ggcorrplot::cor_pmat(corr_df),
+    lab = TRUE,
+    lab_size = 3,
+    outline.color = "white",
+    hc.order = TRUE,
+    insig = "blank") +
+  theme(
+    axis.text.x = element_text(size = 10),  # Adjust x-axis variable names size
+    axis.text.y = element_text(size = 10),  # Adjust y-axis variable names size
+    plot.title = element_text(size = 20)  # Adjust plot title size
+  ) +
+  coord_fixed(ratio = 1) +  # Adjust overall visual dimensions (aspect ratio)
+  labs(title = "Correlation Plot")  # Add a title to the plot
+
+
+
+```
+
+
+## Avg inside sale by year, month and week
+```{r}
+# Calculate yearly, monthly, and weekly average sales
+yearly_avg <- tseries %>%
+  group_by(year = year(date)) %>%
+  summarise(avg_sales = mean(inside_sales))
+
+monthly_avg <- tseries %>%
+  group_by(year = year(date), month = month(date, label = TRUE), year_month = format(date, "%Y-%m")) %>%
+  summarise(avg_sales = mean(inside_sales))
+
+weekly_avg <- tseries %>%
+  group_by(year = year(date), week = week(date)) %>%
+  summarise(avg_sales = mean(inside_sales))
+
+# Create a color palette for different years
+year_palette <- scales::hue_pal()(length(unique(monthly_avg$year)))
+
+# Create a time series plot with monthly aggregation and smoother
+plot_yearly <- ggplot(data = tseries, aes(x = floor_date(date, unit = "month"), y = inside_sales)) +
+  geom_line(stat = "summary", fun.y = "mean", color = "blue") +
+  labs(title = "Yearly Average Inside Sales", x = "Date (Year-Month)", y = "Average Inside Sales") +
+  theme_minimal()
+
+# Calculate unique months and their positions
+unique_months <- tseries %>%
+  distinct(year = year(date), month = month(date)) %>%
+  mutate(month_position = as.Date(paste(year, month, "01", sep = "-")))
+
+# Add dotted vertical lines at every month change point
+plot_yearly <- plot_yearly +
+  geom_vline(data = unique_months, aes(xintercept = as.numeric(month_position)), 
+             linetype = "dotted", color = "red", alpha = 0.5)
+
+plot_monthly <- ggplot(data = monthly_avg, aes(x = month, y = avg_sales, fill = as.factor(year))) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(avg_sales, 2)), vjust = -0.3, size = 3, position = position_stack(vjust = 0.5)) +  # Add labels within bars
+  labs(title = "Monthly Average Inside Sales by Year", x = "Month", y = "Average Inside Sales") +
+  scale_x_discrete(labels = month.name) +
+  scale_fill_manual(values = year_palette) +
+  theme_minimal() +
+  guides(fill = guide_legend(title = "Year"))
+
+plot_weekly <- ggplot(data = weekly_avg, aes(x = week, y = avg_sales)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  labs(title = "Weekly Average Inside Sales", x = "Week", y = "Average Inside Sales") +
+  theme_minimal()
+
+# Arrange the plots in a grid
+library(gridExtra)
+grid.arrange(plot_yearly, plot_monthly, plot_weekly, nrow = 3)
+
+```
+
+Average inside sales for a company have been increasing steadily over the past year, from $2,130.68 in January 2021 to $3,097.86 in December 2022. The average inside sales in 2023 have been higher than the average inside sales in 2022 for every month except for January. The weekly average inside sales have been fluctuating throughout 2023, but the overall trend has been upward.
+
+##Avg food service sales by year, month and week
+```{r}
+# Calculate yearly, monthly, and weekly average food service sales
+yearly_avg_food_service <- tseries %>%
+  group_by(year = year(date)) %>%
+  summarise(avg_sales = mean(food_service_sales), .groups = "drop")
+
+monthly_avg_food_service <- tseries %>%
+  group_by(year = year(date), month = month(date, label = TRUE), year_month = format(date, "%Y-%m")) %>%
+  summarise(avg_sales = mean(food_service_sales), .groups = "drop")
+
+weekly_avg_food_service <- tseries %>%
+  group_by(year = year(date), week = week(date)) %>%
+  summarise(avg_sales = mean(food_service_sales), .groups = "drop")
+
+# Create a color palette for different years
+year_palette <- scales::hue_pal()(length(unique(monthly_avg_food_service$year)))
+
+# Create plots for food service sales
+plot_yearly_food_service <- ggplot(data = tseries, aes(x = floor_date(date, unit = "month"), y = food_service_sales)) +
+  geom_line(stat = "summary", fun.y = "mean", color = "blue") +
+  labs(title = "Yearly Average Food Service Sales", x = "Date (Year-Month)", y = "Average Food Service Sales") +
+  theme_minimal()
+
+# Calculate unique months and their positions for food service sales
+unique_months_food_service <- tseries %>%
+  distinct(year = year(date), month = month(date)) %>%
+  mutate(month_position = as.Date(paste(year, month, "01", sep = "-")))
+
+# Add dotted vertical lines at every month change point for food service sales
+plot_yearly_food_service <- plot_yearly_food_service +
+  geom_vline(data = unique_months_food_service, aes(xintercept = as.numeric(month_position)), 
+             linetype = "dotted", color = "red", alpha = 0.5)
+
+# Create monthly plot for food service sales
+plot_monthly_food_service <- ggplot(data = monthly_avg_food_service, aes(x = month, y = avg_sales, fill = as.factor(year))) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(avg_sales, 2)), vjust = -0.3, size = 3, position = position_stack(vjust = 0.5)) +  # Add labels within bars
+  labs(title = "Monthly Average Food Service Sales by Year", x = "Month", y = "Average Food Service Sales") +
+  scale_x_discrete(labels = month.name) +
+  scale_fill_manual(values = year_palette) +
+  theme_minimal() +
+  guides(fill = guide_legend(title = "Year"))
+
+# Create weekly plot for food service sales
+plot_weekly_food_service <- ggplot(data = weekly_avg_food_service, aes(x = week, y = avg_sales)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  labs(title = "Weekly Average Food Service Sales", x = "Week", y = "Average Food Service Sales") +
+  theme_minimal()
+
+# Arrange the food service sales plots in a grid
+grid.arrange(plot_yearly_food_service, plot_monthly_food_service, plot_weekly_food_service, nrow = 3)
+
+```
+
+Overall, yearly average food service sales are increasing, while monthly and weekly average food service sales are declining. The biggest decline in monthly average food service sales is in the winter months, while the biggest increase is in the summer months. The weekly average food service sales are more volatile than the monthly average food service sales, but the overall trend is downward.
+
+## Diesel sales by year, month and week
+```{r}
+# Calculate yearly, monthly, and weekly average diesel sales
+yearly_avg_diesel <- tseries %>%
+  group_by(year = year(date)) %>%
+  summarise(avg_sales = mean(diesel_sales), .groups = "drop")
+
+monthly_avg_diesel <- tseries %>%
+  group_by(year = year(date), month = month(date, label = TRUE), year_month = format(date, "%Y-%m")) %>%
+  summarise(avg_sales = mean(diesel_sales), .groups = "drop")
+
+weekly_avg_diesel <- tseries %>%
+  group_by(year = year(date), week = week(date)) %>%
+  summarise(avg_sales = mean(diesel_sales), .groups = "drop")
+
+# Create a color palette for different years
+year_palette <- scales::hue_pal()(length(unique(monthly_avg_diesel$year)))
+
+# Create plots for diesel sales
+plot_yearly_diesel <- ggplot(data = tseries, aes(x = floor_date(date, unit = "month"), y = diesel_sales)) +
+  geom_line(stat = "summary", fun.y = "mean", color = "blue") +
+  labs(title = "Yearly Average Diesel Sales", x = "Date (Year-Month)", y = "Average Diesel Sales") +
+  theme_minimal()
+
+# Calculate unique months and their positions for diesel sales
+unique_months_diesel <- tseries %>%
+  distinct(year = year(date), month = month(date)) %>%
+  mutate(month_position = as.Date(paste(year, month, "01", sep = "-")))
+
+# Add dotted vertical lines at every month change point for diesel sales
+plot_yearly_diesel <- plot_yearly_diesel +
+  geom_vline(data = unique_months_diesel, aes(xintercept = as.numeric(month_position)), 
+             linetype = "dotted", color = "red", alpha = 0.5)
+
+# Create monthly plot for diesel sales
+plot_monthly_diesel <- ggplot(data = monthly_avg_diesel, aes(x = month, y = avg_sales, fill = as.factor(year))) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(avg_sales, 2)), vjust = -0.3, size = 3, position = position_stack(vjust = 0.5)) +  # Add labels within bars
+  labs(title = "Monthly Average Diesel Sales by Year", x = "Month", y = "Average Diesel Sales") +
+  scale_x_discrete(labels = month.name) +
+  scale_fill_manual(values = year_palette) +
+  theme_minimal() +
+  guides(fill = guide_legend(title = "Year"))
+
+# Create weekly plot for diesel sales
+plot_weekly_diesel <- ggplot(data = weekly_avg_diesel, aes(x = week, y = avg_sales)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  labs(title = "Weekly Average Diesel Sales", x = "Week", y = "Average Diesel Sales") +
+  theme_minimal()
+
+# Arrange the diesel sales plots in a grid
+grid.arrange(plot_yearly_diesel, plot_monthly_diesel, plot_weekly_diesel, nrow = 3)
+
+```
+
+The graph shows that the average diesel sales have been increasing steadily throughout the year, with the highest sales in August and September. The weekly average diesel sales have been more volatile than the monthly average diesel sales, but the overall trend has been upward.
+
+
+## Unleaded sales by year, month and week
+```{r}
+# Calculate yearly, monthly, and weekly average unleaded sales
+yearly_avg_unleaded <- tseries %>%
+  group_by(year = year(date)) %>%
+  summarise(avg_sales = mean(unleaded_sales), .groups = "drop")
+
+monthly_avg_unleaded <- tseries %>%
+  group_by(year = year(date), month = month(date, label = TRUE), year_month = format(date, "%Y-%m")) %>%
+  summarise(avg_sales = mean(unleaded_sales), .groups = "drop")
+
+weekly_avg_unleaded <- tseries %>%
+  group_by(year = year(date), week = week(date)) %>%
+  summarise(avg_sales = mean(unleaded_sales), .groups = "drop")
+
+# Create a color palette for different years
+year_palette <- scales::hue_pal()(length(unique(monthly_avg_unleaded$year)))
+
+# Create plots for unleaded sales
+plot_yearly_unleaded <- ggplot(data = tseries, aes(x = floor_date(date, unit = "month"), y = unleaded_sales)) +
+  geom_line(stat = "summary", fun.y = "mean", color = "blue") +
+  labs(title = "Yearly Average Unleaded Sales", x = "Date (Year-Month)", y = "Average Unleaded Sales") +
+  theme_minimal()
+
+# Calculate unique months and their positions for unleaded sales
+unique_months_unleaded <- tseries %>%
+  distinct(year = year(date), month = month(date)) %>%
+  mutate(month_position = as.Date(paste(year, month, "01", sep = "-")))
+
+# Add dotted vertical lines at every month change point for unleaded sales
+plot_yearly_unleaded <- plot_yearly_unleaded +
+  geom_vline(data = unique_months_unleaded, aes(xintercept = as.numeric(month_position)), 
+             linetype = "dotted", color = "red", alpha = 0.5)
+
+# Create monthly plot for unleaded sales
+plot_monthly_unleaded <- ggplot(data = monthly_avg_unleaded, aes(x = month, y = avg_sales, fill = as.factor(year))) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(avg_sales, 2)), vjust = -0.3, size = 3, position = position_stack(vjust = 0.5)) +  # Add labels within bars
+  labs(title = "Monthly Average Unleaded Sales by Year", x = "Month", y = "Average Unleaded Sales") +
+  scale_x_discrete(labels = month.name) +
+  scale_fill_manual(values = year_palette) +
+  theme_minimal() +
+  guides(fill = guide_legend(title = "Year"))
+
+# Create weekly plot for unleaded sales
+plot_weekly_unleaded <- ggplot(data = weekly_avg_unleaded, aes(x = week, y = avg_sales)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  labs(title = "Weekly Average Unleaded Sales", x = "Week", y = "Average Unleaded Sales") +
+  theme_minimal()
+
+# Arrange the unleaded sales plots in a grid
+grid.arrange(plot_yearly_unleaded, plot_monthly_unleaded, plot_weekly_unleaded, nrow = 3)
+
+```
+
+Average unleaded sales is increased from 2021 to 2023. Weekly unleaded sales are more volatile, with the highest weekly average sales of 8000 in week 33 and the lowest weekly average sales of approx 3800 in week 54. Businesses should monitor sales data and be aware of the volatility in weekly unleaded sales.
+
+
+## Weekday and Weekend sales analysis
+
+```{r}
+
+# Create df for plot to shade holidays
+holiday_4gg <- tseries %>%
+  # add `day_id`
+  left_join(day_id_df %>%
+              select(date, day_id), "date") %>%
+  # place all sales into one column, labeled by another
+  pivot_longer(c(inside_sales, food_service_sales, diesel_sales, unleaded_sales),
+               names_to = "metric",
+               values_to = "sales") %>%
+  # aggregate by `day_id` and sales metric
+  group_by(metric, day_id) %>%
+  mutate(sales = sum(sales)) %>%
+  # aggregate by `metric`
+  group_by(metric) %>%
+  mutate(sales_max = max(sales),
+         sales_min = min(sales)) %>%
+  # Keep only holidays
+  filter(holiday != "NONE") %>%
+  group_by(holiday, metric) %>%
+  # get min/max of `day_id` and `sales`
+  reframe(day_id = range(day_id),
+          sales = c(sales_min[1], sales_max[1]))
+
+tseries %>%
+  # add `day_id`
+  left_join(day_id_df %>%
+              select(date, day_id), "date") %>%
+  # place all sales into one column, labeled by another
+  pivot_longer(c(inside_sales, food_service_sales, diesel_sales, unleaded_sales),
+               names_to = "metric",
+               values_to = "sales") %>%
+  # aggregate by `day_id` and sales metric
+  group_by(metric, day_id) %>%
+  summarise(sales = sum(sales),
+            day_type = day_type[1]) %>%
+  ggplot() +
+  geom_mark_rect(data = holiday_4gg,
+                 aes(day_id, sales, 
+                     group = interaction(holiday, metric)),
+                 expand = unit(1.5, "mm"), radius = unit(0.5, "mm"), 
+                 fill = "#000000", alpha = 0.1, color = NA) +
+  # `group = 1` prevents a separate line for each `day_type`
+  geom_line(aes(day_id, sales, color = day_type, group = 1)) +
+  # Rescale labels to thousands
+  scale_y_continuous(labels = ~./1e3) +
+  # create separate plot for each `metric`
+  facet_rep_wrap(~metric, repeat.tick.labels = TRUE, scales = "free", ncol = 1) +
+  theme_minimal(20) +
+  labs(title = "Sales vs day_id",
+       y = "sales $ (thousands)")
+
+```
+
+## Annualized store sales - Che
+
+```{r}
+# Categorical line color
+tseries %>%
+  # add `day_id`
+  left_join(day_id_df %>%
+              select(date, day_id), "date") %>%
+  group_by(day_id) %>%
+  mutate(is_holiday = case_when(holiday != "NONE" ~ "holiday",
+                                .default = "regular day")) %>%
+  # place all sales into one column, labeled by another
+  pivot_longer(c(inside_sales, food_service_sales, diesel_sales, unleaded_sales),
+               names_to = "metric",
+               values_to = "sales") %>%
+  # aggregate by `day_id` and sales metric
+  group_by(metric, day_id) %>%
+  summarise(sales = sum(sales),
+            is_holiday = is_holiday[1]) %>% 
+  ggplot() +
+  # `group = 1` prevents a separate line for each `is_holiday`
+  geom_line(aes(day_id, sales, color = is_holiday, group = 1),
+            linewidth = 1) +
+  # Create generalized date labels
+  scale_x_continuous(breaks = c(1, cumsum(days_in_month(as_date(paste0("2021-", month.abb, "-01")))) + 1),
+                     labels = ~format(as_date("2021-12-31") + ., "%b %d")) +
+  # Rescale labels to thousands
+  scale_y_continuous(labels = ~./1e3) +
+  # create separate plot for each `metric`
+  facet_rep_wrap(~metric, repeat.tick.labels = TRUE, scales = "free", ncol = 1) +
+  theme_minimal(20) +
+  theme(legend.position = "top",
+        legend.title = element_blank()) +
+  labs(title = "Annualized store sales",
+       x = "generalized date",
+       y = "sales $ (thousands)")
+```
+
+## Department-wise sales
+
+```{r}
+# Create a new data frame for department-wise sales
+department_sales <- tseries %>%
+  select(date, day_type, inside_sales, food_service_sales, diesel_sales, unleaded_sales) %>%
+  pivot_longer(cols = -c(date, day_type), names_to = "department", values_to = "sales")
+
+# Summarize sales by department and day type
+department_summary <- department_sales %>%
+  group_by(department, day_type) %>%
+  summarise(total_sales = sum(sales))
+
+# Create separate pie charts for weekdays and weekends
+weekday_pie <- ggplot(data = filter(department_summary, day_type == "WEEKDAY"), aes(x = "", y = total_sales, fill = department)) +
+  geom_bar(stat = "identity") +
+  coord_polar(theta = "y") +
+  labs(title = "Department-wise Sales on Weekdays") +
+  theme_void() +
+  scale_fill_brewer(palette = "Set3") +
+  geom_text(aes(label = scales::percent(total_sales/sum(total_sales), accuracy = 0.1)), position = position_stack(vjust = 0.5))
+
+weekend_pie <- ggplot(data = filter(department_summary, day_type == "WEEKEND"), aes(x = "", y = total_sales, fill = department)) +
+  geom_bar(stat = "identity") +
+  coord_polar(theta = "y") +
+  labs(title = "Department-wise Sales on Weekends") +
+  theme_void() +
+  scale_fill_brewer(palette = "Set3") +
+  geom_text(aes(label = scales::percent(total_sales/sum(total_sales), accuracy = 0.1)), position = position_stack(vjust = 0.5))
+
+# Arrange the pie charts in a grid
+grid.arrange(weekday_pie, weekend_pie, nrow = 1)
+
+```
+
+Inside sales is the top-performing department on both weekdays and weekends, accounting for 29.9% and 34.6% of sales, respectively.
+Food service is the second-top-performing department on both weekdays and weekends, accounting for 23.7% and 39.4% of sales, respectively.
+Unleaded sales is the bottom-performing department on both weekdays and weekends, accounting for 10.1% and 9.1% of sales, respectively.
+
+## Sales by day of the week
+```{r}
+# Create a box plot of sales by day of the week
+ggplot(tseries, aes(x = day_of_week, y = inside_sales)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Box Plot of Sales by Day of the Week")
+
+```
+
+The box plot illustrates sales variations by day of the week. Key findings show that Tuesdays consistently have the highest sales, while Sundays have the lowest. Sales generally cluster above the median, except on Sundays. The spread of sales data is narrower on Tuesdays and wider on weekends.
+
+## Monthly sales trend by all sales metrics
+```{r}
+# Define the columns related to sales
+sales_columns <- c("inside_sales", "food_service_sales", "diesel_sales", "unleaded_sales")
+
+# Create a long format of the dataset with a 'department' variable
+tseries_long <- tseries %>%
+  pivot_longer(cols = sales_columns, names_to = "department", values_to = "sales")
+
+# Extract year and month from the date
+tseries_long$year <- year(tseries_long$date)
+tseries_long$month <- month(tseries_long$date)
+
+# Calculate monthly sales statistics by department
+monthly_summary <- tseries_long %>%
+  group_by(year, month, department) %>%
+  summarize(
+    AvgSales = mean(sales),
+    LowerCI = quantile(sales, 0.025),
+    UpperCI = quantile(sales, 0.975)
+  )
+
+# Create a monthly sales trend plot by department
+ggplot(monthly_summary, aes(x = as.Date(paste(year, month, "01", sep = "-")), y = AvgSales, color = department)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI, fill = department), alpha = 0.2) +
+  labs(title = "Monthly Sales Trend by Department with Confidence Intervals") +
+  xlab("Date") +
+  ylab("Average Sales") +
+  theme_minimal()
+```
+
+This graph illustrates the monthly sales performance for various departments. Each solid line represents the estimated average sales for a specific department over time. The shaded area surrounding each line serves as a confidence interval, indicating a range of values where we are reasonably confident the true average sales lie. In simpler terms, it gives us a sense of how much sales might vary while still being within a certain level of confidence. Wider shaded areas suggest greater uncertainty, while narrower ones indicate more precise estimates. Essentially, this graph helps us track and understand trends and fluctuations in average sales for different departments across months.
+
+
+# Results
+
+While doing EDA for Maverick store data, several data cleaning and pre-processing steps were performed on qualitative and time series data sets. From the time series data set, we have 13908 rows and 11 columns to work with, and 37 rows and 53 columns in the qualitative data set. Qualitative data columns were converted to factors for better analysis, and redundant columns were removed. Missing values in categorical columns were replaced with "None". "None" was decided in lieu of explicit `NA` since Maverik expressed that "N/A" or "None" indicates a missing site feature instead of missing data. The qualitative data set contains fewer sites than the time series data set but of those stores present, the analysis also revealed that more stores were opened in 2021 than in 2022. This EDA also revealed some interesting correlations, like the strong positive correlation between the number of sinks in women's bathrooms and diesel sales.
+ 
+ 
+
+In the time series data, unnecessary columns were removed, and date columns were converted to the correct data type. The analysis showed a steady increase in average inside sales over the past year, with 2023 outperforming 2022 except for January. Food service sales decreased monthly and weekly, with the most significant decline in winter and an increase in summer. Diesel and unleaded sales showed steady increases, with weekly unleaded sales displaying volatility. The correlation matrix provided insights into the relationships between variables.
+
+ 
+
+Furthermore, sales trends were observed, indicating higher average daily sales on weekdays, particularly on Mondays and Fridays. Inside sales and food service were the top-performing departments, with unleaded sales performing less well. The box plot illustrated sales variations by day of the week, with Tuesdays having consistently higher sales. Finally, a graph displayed monthly sales performance for different departments, showing trends and fluctuations.
+
+# Contributions
+* Che Diaz Fadel
+    + Section 1
+    + Section 2
+    + Section 3
+    + Section 4
+    + Section 5
+    + Section 6
+    + Formatting
+    + Troubleshooting
+* Debayan Dutta
+    + Section 1
+    + Section 2
+    + Section 6
+    + Formatting
+    + Troubleshooting
+* Kalyani Joshi
+    + Section 1
+    + Section 2
+    + Section 3
+    + Section 4
+    + Section 5
+    + Section 6
+    + Requirements
+* Disha Tapadiya
+    + Section 1
+    + Section 2
+    + Section 4
+    + Section 5
+    + Section 7
+    + Formatting
+

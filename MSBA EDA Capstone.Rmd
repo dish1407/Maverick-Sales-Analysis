@@ -1,0 +1,205 @@
+---
+title: "Capstone file EDA"
+author: "Disha Tapadiya"
+output: html_document
+date: "2023-10-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Itroduction
+
+Project Goal:
+The goal of this project is to develop a predictive model that is precise enough for forecasting the first-year sales of new stores that Maverick plans to open, with a target accuracy of within 10% of actual sales. This predictive model will aid Maverick in financial planning, resource allocation, and ROI calculations for its expansion strategy.
+
+Business Problems:
+Maverick aims to open 30 new stores annually and requires an accurate predictive model for the first-year sales to support financial planning and ROI calculations.
+
+Benefits of the Solution:
+Precise forecasts will enable them to make informed decisions on store locations and resource allocation along with achieving set sales targets while checking the progress.
+
+Success Matrix:
+The solution provided will be considered a success if it generates forecasts accurate to within 10% of actual sales, can update forecasts based on new data along with being user-friendly and easy to support.
+
+Analytical Approach:
+We will utilize machine learning techniques to create a forecasting model, starting with data analysis and then training various models using historical sales data.
+
+Project Scope:
+The project's scope includes the development of an R-based model capable of providing daily-level sales forecasts, including annual forecasts, while considering seasonality. The model should also have the ability to update forecasts as new data becomes available. The timeline for this project is approximately 16 weeks, with key milestones achieved throughout the process.
+
+EDA Notebook Purpose:
+The purpose of the Exploratory Data Analysis (EDA) notebook is to gain a deep understanding of the data provided for the sales forecasting project. It will serve as the initial step in the data analysis process, helping us identify patterns, trends, and potential challenges in the data. The EDA will also assist in formulating the right questions to guide the modeling process.
+
+Questions for Data Exploration:
+
+1. What is the structure and format of the provided sales data?
+2. Are there any missing values, outliers, or data quality issues that need to be addressed?
+3. What are the key features and variables that may influence sales forecasts?
+4. How does seasonality impact sales, and can we identify any recurring patterns?
+5. Are there any significant trends or factors that affect store sales?
+6. Can we identify any potential external variables (e.g., economic indicators) that might impact sales?
+7. What is the distribution of sales across different stores and regions?
+8. How does store-specific data (e.g., store size, location) correlate with sales performance?
+9. Are there any other data sources that can complement the provided dataset for improved forecasting?
+
+The EDA notebook will help lay the foundation for subsequent data preprocessing, feature engineering, and model development phases by providing insights into the dataset's characteristics and potential challenges.
+
+## Loading Libraries
+
+```{r}
+library(tidyverse)
+library(tsibble)
+library(lubridate)
+library(heatmaply)
+library(skimr)
+library(gridExtra)
+```
+
+## Data Loading
+
+```{r}
+mv_time_series <- read.csv("time_series_data_msba.csv")
+mv_qualitative <- read.csv("qualitative_data_msba.csv")
+head(mv_qualitative)
+head(mv_time_series)
+str(mv_qualitative)
+str(mv_time_series)
+```
+## Data Description
+
+The data we have available for the project has 2 data sets, one is the qualitative data that has 37 observations and 54 varibales and the other is the time series data which has 13908 observations and 11 variables.
+
+The combination of these two datasets provides a comprehensive understanding of the trends we are trying to study. The qualitative dataset can be used to provide context and interpretation for the quantitative data, while the quantitative data can be used to test hypotheses and to identify relationships between variables.
+
+## Data Cleaning 
+
+```{r}
+mv_time_series <- mv_time_series %>%
+  select(-1) %>% # removing unnamed row index column
+  rename_with(~str_split_1(paste0("open_date,calender_date,week_id,day_name,holiday,",
+                                  "day_type,inside_sales,food_service,diesel,",
+                                  "unleaded,site_id"), ",")) %>%
+  relocate(site_id) %>%
+  mutate(open_date = ymd(open_date),
+         calender_date = ymd(calender_date)) %>%
+  as_tibble(index = calender_date)
+
+mv_qualitative <- mv_qualitative %>%
+  select(-`Hi.Flow.Lanes`) %>%
+  #'Hi Flow Lanes' and 'Hi-Flow RV Lanes' are duplicated columns
+  rename(`Hi.Flow.Lane` = `Hi.Flow.RV.Lanes`) 
+  # Renaming after dropping one column 
+```
+
+## Finding Missing Values
+```{r}
+
+msn_mvt <- mv_time_series %>%
+  is.na() %>%
+  as.data.frame()
+msn_mvq <- mv_qualitative %>%
+  is.na() %>%
+  as.data.frame()
+
+```
+
+From the above we notice that there are no missing values in our data set. This is a positive finding as dealing with missing values is a significant challenge in itself. Hence having no missing values helps us to move forward with the analysis of the data. 
+
+## Exploratory Data Analysis
+
+```{r}
+
+summary(mv_qualitative)
+
+mvt_grouped <- mv_time_series %>%
+  mutate(day_type = factor(day_type),
+         day_name = factor(day_name)) %>%
+  arrange(day_name)
+```
+
+```{r}
+
+mvt_grouped %>% 
+ggplot(aes (scale(inside_sales, scale = FALSE, center = TRUE), day_name, col = day_type)) +
+geom_smooth(method = "lm", se = F) +
+labs("Sales ~ Day")
+
+##mvq_grouped <- mv_qualitative %>%
+ ## mutate(f) %>%
+  ## mutate(group_by(Years.Since.Last.Project))
+
+```
+
+Our data visualization reveals that sales are lowest on the weekends, contrary to the popular belief that sales are highest on the weekends. Finding this is significant becuase it challenges a common assumption about consumer behaviour.  
+
+
+```{r}
+
+ggplot(data = mvt_grouped, aes(day_name, inside_sales)) +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = F) +
+  labs("Date ~ Sales")
+
+```
+
+
+```{r}
+
+ggplot(data = mvt_grouped, aes(x = week_id, y = inside_sales)) +
+  geom_line() +
+  labs(title = "Time Series Plot")
+
+```
+
+
+```{r}
+ggplot(data = mv_time_series, aes(x = calender_date, y = inside_sales)) +
+  geom_line() +
+  labs(title = "Time Series Plot")
+
+```
+
+
+```{r}
+
+mv_time_numeric <- as.numeric(mv_time_series)
+# Calculate the correlation matrix
+corr_matrix <- cor(mv_time_series)
+
+# Create a heatmap
+ggplot(mv_qualitative, aes(x = names(corr_matrix), y = names(corr_matrix), fill = corr_matrix)) +
+  geom_tile(color = "black") +
+  xlab("Variable") +
+  ylab("Variable") +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_bw()
+```
+
+
+```{r}
+acf(mv_time_series$inside_sales)
+pacf(mv_time_series$inside_sales)
+
+```
+
+```{r}
+ggplot(data = mv_time_series, aes(x = inside_sales)) +
+  geom_histogram(binwidth = 10) +
+  labs(title = "Histogram of Time Series Data")
+
+```
+
+```{r}
+count_mvt <- mv_time_series %>% count(site_id)
+count_mvt
+symdiff(mv_time_series$site_id, mv_qualitative$site_id)
+count_date <- mv_time_series %>% count(open_date)
+count_date
+```
+
+## Contribution 
+
+My contribution in the EDA Notebook involved cleaning, loading and tranforming the data to prepare it for analysis as well as to create visualizations to explore the data to identify patterns and trends. The findings from this EDA will help us answer a lot of questions that we need to move forward with creating our model. ,l

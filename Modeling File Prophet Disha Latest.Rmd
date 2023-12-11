@@ -1,0 +1,220 @@
+---
+title: "Modeling Using Prophet Model"
+output: html_document
+date: "2023-10-29"
+author: "Data Dive_rse - Kalyani Joshi, Che Diaz Fadel, Disha Tapadiya and Debayan Dutta"
+output: 
+  html_document:
+    number_sections: yes
+    toc: yes
+    fig_width: 15
+    fig_height: 10
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading Packages and Libraries
+
+```{r}
+install.packages("prophet")
+install.packages("Rcpp")
+install.packages("rlang")
+install.packages("forecast")
+library(forecast)
+library(prophet)
+library(dplyr)
+library(tidyr)
+
+```
+
+## Loading Cleaned Data
+
+```{r}
+qualitative <- read.csv("qualitative_data_msba.csv")
+time_series <- read.csv("time_series_data_msba.csv")
+#q_data <- read.csv("q_data.csv")
+
+#t_series <- read.csv("t_series.csv")
+
+#merged <- read.csv("merged_data.csv")
+```
+
+# Fixing the error encountered
+
+```{r}
+# Fixed Data
+
+ts_data <- read.csv("t_series.csv") 
+t_series <- ts_data %>% filter(site_id != 23065)
+
+fixed_cnames <- colnames(read.csv("q_data.csv") %>%
+                           mutate(men_toilet_count = NA,
+                                  .after = self_check_out) %>%
+                           select(-rv_fueling_positions))[c(1:39, 41, 42, 40, 43:52)]
+
+q_data <- read.csv("qualitative_data_msba.csv") %>%
+  select(-c(1, `RV_Lanes_Fueling_Positions`, `Hi_Flow_Lanes_Fueling_Positions`)) %>%
+  mutate(
+    across(
+      where(~any(grepl("^N/?A$", ., ignore.case = TRUE))),
+      ~replace(., grepl("^N/?A$", ., ignore.case = TRUE), "None")
+    )
+  ) %>%
+  rename_with(~fixed_cnames)
+
+merged_data <- t_series %>%
+  left_join(q_data,
+            "site_id")
+```
+
+>> Some discrepencies were observed when merging the data directly, hence the above code chunk was added to fix the error encountered. 
+
+
+# Fitting the Model
+
+```{r}
+
+# Rename columns if they are named differently
+model_df <- merged_data %>%
+  rename(ds = date, y = inside_sales)
+
+colnames(model_df)
+
+# Splitting point for an 80:20 split
+split_point <- floor(0.8 * nrow(model_df))
+print(split_point)
+nrow(merged_data)
+
+# Splitting into train and test sets
+train_data <- model_df[1:split_point, ]
+nrow(train_data)
+test_data <- model_df[(split_point + 1):nrow(model_df), ]
+nrow(test_data)
+
+# Fitting the Prophet model on the training data
+model <- prophet()
+model_fit <- fit.prophet(model, train_data)
+
+# Creating a future dataframe for predictions on the test data
+future <- make_future_dataframe(model_fit, periods = nrow(test_data))
+
+# Making predictions on the test data
+forecast <- predict(model_fit, future)
+
+# Visualize the forecast
+plot(model_fit, forecast)
+
+# Accuracy Metrics
+accuracy_metrics <- accuracy(forecast$yhat, test_data$y)
+print(accuracy_metrics)
+
+
+```
+
+>> ME (Mean Error): The test set's average deviation between predicted and actual values is roughly -416.74 units.
+
+>> RMSE (Root Mean Squared Error): The average error between the model's predictions and the test set's actual values is 1313.426 units.
+
+>> The model's average deviation from the actual values in the test set is around 1055.11 units, as indicated by the MAE (Mean Absolute Error).
+
+>> The average percentage difference between the predicted and actual values is called the Mean Percentage Error, or MPE for short.
+
+>> These metrics provide insights into the model's performance, indicating how well the forecasted values align with the observed values. The negative ME suggests an overall overestimation by the model.
+
+# Fitting The model with Regressors 
+
+```{r}
+
+#library(prophet)
+
+# Create a Prophet model
+model_reg <- prophet()
+
+# Add additional regressor variables
+model_reg <- add_regressor(model_reg, name = "food_service_sales")
+model_reg <- add_regressor(model_reg, name = "diesel_sales")
+model_reg <- add_regressor(model_reg, name = "unleaded_sales")
+
+# Fit the model with additional regressors
+model_reg <- fit.prophet(model_reg, model_df)
+
+summary(model_reg)
+
+# Make future predictions
+future <- make_future_dataframe(model_reg, periods = 365)  # Example: forecast for 365 days
+
+length(model_df$food_service_sales)
+
+# Assuming future has fewer rows than model_df$food_service_sales
+future$food_service_sales <- head(model_df$food_service_sales, nrow(future))
+future$diesel_sales <- head(model_df$diesel_sales, nrow(future))
+future$unleaded_sales <- head(model_df$unleaded_sales, nrow(future))
+
+#future$food_service_sales <- model_df$food_service_sales
+#future$diesel_sales <- model_df$diesel_sales 
+#future$unleaded_sales <- model_df$unleaded_sales
+
+forecast <- predict(model_reg, future)
+
+colnames(forecast)
+# Visualize forecast
+plot(model_reg, forecast)
+
+```
+>> By taking into account these extra variables and utilising Prophet's ability to include external regressors, this code can produce forecasts that may provide more thorough predictions due to the inclusion of various impacting factors.
+
+
+# Results
+
+>> Forecasts for future time periods were produced by applying the Prophet algorithm-based initial forecasting model to the given dataset.
+Metrics including Mean Error (ME), Root Mean Squared Error (RMSE), Mean Absolute Error (MAE), Mean Percentage Error (MPE), and Mean Absolute Percentage Error (MAPE) were used to evaluate the forecast's accuracy. The performance of the model and the size of the forecast errors were shown by the precise values of these measures.
+
+>> Using the Prophet algorithm, a more advanced forecasting model was developed by adding three more regressor variables: "food_service_sales," "diesel_sales," and "unleaded_sales."
+Using the supplied dataset, the model was trained to produce predictions for upcoming times using both historical data and extra regressor factors.
+
+>> These code snippets show how to perform time series forecasting using the Prophet model with and without extra regressor variables. With the addition of more regressors, the forecast should be more accurate and complete as a result of taking into account a variety of influencing factors.
+
+```{r}
+# Instantiate and fit the Prophet model
+#prophet_model <- prophet()
+#prophet_model <- add_regressor(prophet_model, 'QualVar1')
+#prophet_model <- add_regressor(prophet_model, 'QualVar2')
+# Add additional regressors as needed
+
+#prophet_model <- fit(prophet_model, merged_data)
+
+# Future dataframe for forecasting
+# future <- make_future_dataframe(prophet_model, periods = 12, freq = 'years')
+
+# Merge future data with qualitative data
+# future_merged <- merge(future, q_data, by.x = "date", by.y = "open_year", all.x = TRUE)
+
+# Make forecasts
+# forecast <- predict(prophet_model, future_merged)
+
+# Plot the forecast
+# plot(prophet_model, forecast)
+
+# Print forecast data
+# print(forecast)
+
+```
+
+
+
+We have taken the RMSE value of all the models to compare the model performance. 
+Looking at all the values we have observed that the SVR model performs the best with the given dataset with different target variables of RMSE as 
+inside_sales = 0.3448517
+food_service = 0.2782577
+diesel = 0.567455
+unleaded = 0.8332988
+We have only used the time series data for this model because the qualitative data was not highly co-related while the target variables were co-related within themselves. 
+Hence,  Maverick should consider using the SVR model for their forecasting. This SVR Model provides sufficient evidence that Maverik’s goal can be achieved. 
+
+While we were able to devise these models, if given more data and time would have resulted in better results. There is likely untapped potential in the other models that could be unleashed with more time and experimentation. Some models require massive computational resources to be sure the best parameters are utilized. 
+
+
