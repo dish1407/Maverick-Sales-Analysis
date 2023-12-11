@@ -10,57 +10,51 @@ This repository contains the code and resources for the Maverik Sales Prediction
 - [Introduction](#introduction)
 - [Business_Problem](#business_problem)
 - [Team_Contribution](#team_contribution)
-- [Contributing](#contributing)
+- [Individual_Contribution](#individual_contribution)
 - [Solution](#solution)
 - [Recommendation](#recommendation)
 - [Difficulties](#difficulties)
 - [Learnings](#learnings)
 
 ## Introduction
+
 With the recent acquisition of 'Kum & Go', Maverik, a quickly growing retail convenience store network, doubled its number of stores and now operates over 400 sites throughout the western United States. Maverik plans to build about 30 new stores a year as part of its aggressive growth strategy, thus these openings are an important component of their business planning. The difficulty they confront is forecasting sales for these new stores with enough accuracy for their first year of business, which is essential for careful financial planning and the preparation of first-rate return on investment documentation. Maverik is working to create a highly efficient data-driven solution that can offer accurate and trustworthy sales projections for these new store openings in order to overcome this difficulty. 
 
 ## Business_Problem
 
-To run this project we would require any platform that supports a .ipynb notebook i.e. Python Programming. 
-The libraries that are used in this include pandas, numpy, matplotlib, matplotlib.pyplot, sklearn.metrics, seaborn, os, prettytable, warnings, sklearn, xgboost, lightgbm. 
+Maverik aims to improve the accuracy of financial planning and ROI documentation for newly opened convenience stores. The project uses qualitative data and quantitative data to increase the accuracy of predictions. To generate daily, seasonally sensitive sales projections for important product categories, an ensemble of forecasting and regression models in R are being developed. As a result, Maverik will be better equipped to allocate resources efficiently, pinpoint lucrative locations, and make overall financial decisions. 
 
 ## Team_Contribution
-The above-mentioned libraries can be installed using 'pip install library_name'. 
 
-## Contributing
+Our efforts as a cohesive team in solving Maverik's business issue are critical to the project's accomplishment. We worked together to conduct in-depth exploratory data analysis, utilising our varied expertise to analyse and comprehend the qualitative data and store-level time series. Together, our knowledge of supervised regression and statistical modelling allows us to create a strong ensemble of R forecasting models.
+We came to a conclusion of one person taking one type of model foward and then comparing the results by the same metric. Together, we made sure the model works properly to produce daily sales projections for important product categories that are subject to seasonal fluctuations. We were dedicated to fulfilling project milestones and producing final materials that greatly improve the accuracy of financial plans and ROI documents before the deadline by actively engaging in both the modelling and exploratory data analysis phases. 
+
+## Individual_Contribution
 
 After completing the EDA on the datasets provided, we moved forward to data cleaning and then to model creation. 
-We tried various models that gave us varied results. I started out with a random tree forest model taking the historical data which had information including the demographics of the borrower. The few things that the Random Forest Model did was accuracy and robustness. 
-After that, we moved on to other types of models including the Logistic Regression Model, LGBM Classifier Model, and XGB Classifier Model. 
-Among all those models the model that gave the most promising results for the data that we used was the XG Boost Classifies Model. It gave us a high degree of accuracy and was a model that is faster to train as well. The borrower's income, work situation, and debt-to-income ratio were among the variables the model was able to pinpoint as being the most reliable indicators of default. 
-The top predcitors for the XGB Model are:
-1. External Source
-2. Age
-3. Loan Terms
-4. Loan Purpose
-5. Employement
+We tried various models that gave us varied results. I helped construct a collection of forecasting models in R by utilising my knowledge of supervised regression and statistical modelling. I started out with a prophet model which is supposed to give efficient results for a time-series analysis. But here we had 4 target variables which made it difficult for the model to be made with the expected results. 
 
-My particular contribution to the project included exploratory data analysis followed by data cleaning. Then I developed a Random Forest Model which gave us an idea to move forward and try other models to get better results. I also collated different notebooks into one single one and wrote the content to explain what we have been doing so far. Error resolution or removal of inconsistencies was also one of the key contributions I made as a team member. 
+Adding different regressors for one target variable was another option I tried to explore but I did not get the results as expected. 
 
 ## Solution
 
-The XGB Model can clearly help Home Credit to reduce its default rates by a significant percentage.  This is due to the model's ability to pinpoint the elements most closely associated with default, including the income, employment, and debt-to-income ratio of the borrower. 
-This model gives a better assessment of a borrower to Home Credit so that they can identify whether taking this risk is worth it or not. The default or no default information can be used in making better decisions in the future which makes their profit rates go higher. 
-This also means that the customer is getting a premium experience by getting to know all the factors and information involved in taking a loan. they can make better decisions about their financial situations if they know their standing in the credit assessment. 
+We ended up with a model which was an ensemble of ARIMA and ETS Models since we had 4 target variables to predict and no single model that addressed the multi-targeted variables and gave eficient results worked. 
 
 ## Recommendation
 
-Our recommendation for Home Credit is to implement this XGB Model which will give them the results that they need to increase their profitability as well as their market reach. 
-Some points that Home Credit can take into account is making sure that the data they use for their model prediction is accurate and complete because having too many error or too many missing values can skew the final results. 
-Another point that should be considered is to monitor the model on a regular basis. As long as the model is giving us desired results or may be results better than that, the company is good to go. But if the results start to decline, they need to take a look at the model and investigate further. 
+Our Final Model was ARIMA/ETS which outperformed the benchmarks that were provided by Maverik. 
+The final recommendations would include:
+1. Adopt the ARIMA/ETS Ensemble Model for daily sales forecasts.
+2. Have a coninuous model evaluation and improvement with more data over time.
+3. Put a little more investment in data collection for the data quality and quantity.
 
 ## Difficulties
 
-The major issues we faced while doing analysis was the size of the data set, it had millions of rows where half of the columns had missing values. Which led to another problem of finding out the KPIs, which metric to use or which to leave out. 
+The major issues we faced while doing analysis was the time-series analysis. It is such a broader umbrella term which has so much in it and to learn all of that in so little time and implement that on our datasets was a bigger task. 
 
 ## Learnings
 
 My particular learnings from this project is both technical and interpersonal. 
-For technical, I worked on Python and learnt there are so many inbuilt libraries that can be used for data analysis directly. 
+For technical, I worked on R and learnt there are so many inbuilt libraries that can be used for data analysis directly. 
 Then the importance of your data and cleaning it so that you can use it to it's full extent. 
 For interpersonal skills I learnt how to work in a team and how to manage time according to everyone and to put in your best work. 
