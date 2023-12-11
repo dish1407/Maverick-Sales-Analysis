@@ -55,6 +55,6 @@ The major issues we faced while doing analysis was the time-series analysis. It 
 ## Learnings
 
 My particular learnings from this project is both technical and interpersonal. 
-For technical, I worked on R and learnt there are so many inbuilt libraries that can be used for data analysis directly. 
-Then the importance of your data and cleaning it so that you can use it to it's full extent. 
+For technical, I worked on R and learnt there are so many inbuilt libraries that can be used for data analysis directly. I put in the extra effort to learn the time series analysis as it was not a part of our curriculum. 
+
 For interpersonal skills I learnt how to work in a team and how to manage time according to everyone and to put in your best work. 
